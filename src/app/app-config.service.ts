@@ -1,5 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
+import { merge } from "lodash-es";
+import { firstValueFrom, Observable } from "rxjs";
 import { timeout } from "rxjs/operators";
 import {
   DatasetDetailComponentConfig,
@@ -161,21 +163,40 @@ export class AppConfigService {
 
   constructor(private http: HttpClient) {}
 
+
+  /*
+   * Loads the frontend configuration.
+   * The following files will be merged, with values from later items overriding earlier ones:
+   * 1. /assets/config.json - defaults from frontend
+   * 2. /api/v3/admin/config - configuration from backend
+   * 3. /assets/custom-config.json - local configuration file
+   */
   async loadAppConfig(): Promise<void> {
-    try {
-      const config = await this.http
-        .get("/api/v3/admin/config")
-        .pipe(timeout(2000))
-        .toPromise();
-      this.appConfig = Object.assign({}, this.appConfig, config);
-    } catch (err) {
-      console.log("No config available in backend, trying with local config.");
-      try {
-        const config = await this.http.get("/assets/config.json").toPromise();
-        this.appConfig = Object.assign({}, this.appConfig, config);
-      } catch (err) {
-        console.error("No config provided.");
-      }
+    const backendUrl = "";
+    const configsURLs = [
+      "/assets/config.json",
+      `${backendUrl}/api/v3/admin/config`,
+      "/assets/custom-config.json",
+    ];
+
+    const responses = configsURLs.map((url) => {
+      const response: Observable<Object> = this.http.get(url).pipe(timeout(1000));
+      return firstValueFrom(response);
+    });
+
+    for (let i = 0; i < responses.length; i++) {
+      const url = configsURLs[i];
+      await responses[i].then(
+        (res) => {
+          this.appConfig = merge( this.appConfig, res)
+          console.log(`loaded config from ${url}`)
+        },
+        (err) => console.warn(`Could not load config from ${url}: ${err}`),
+      );
+    }
+
+    if (Object.keys(this.appConfig).length === 0) {
+      console.error("No config provided.");
     }
 
     const config: AppConfigInterface = this.appConfig as AppConfigInterface;

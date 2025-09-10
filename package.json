@@ -14,6 +14,7 @@
     "betterer": "betterer",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
+    "generate:config": "node scripts/merge-configs.js -o src/assets/custom-config.json config.d/*",
     "generate:sdk:local": "node scripts/generate-nestjs-sdk"
   },
   "private": true,
